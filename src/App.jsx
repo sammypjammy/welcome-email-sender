@@ -6,12 +6,31 @@ const MANAGER_STORAGE_KEY = "packard-selected-case-manager";
 const THEME_STORAGE_KEY = "packard-welcome-email-theme";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const themes = [
-  { id: "light", label: "Light", color: "#386fe5" },
-  { id: "dark", label: "Dark", color: "#6f9aff" },
-  { id: "sepia", label: "Sepia", color: "#9a6c35" },
-  { id: "forest", label: "Forest", color: "#3f7d58" },
-  { id: "blossom", label: "Blossom", color: "#b65fcf" },
+  { id: "light", label: "Light", icon: "\u2600\ufe0f" },
+  { id: "dark", label: "Dark", icon: "\ud83c\udf19" },
+  { id: "sepia", label: "Sepia", icon: "\ud83d\udcdc" },
+  { id: "forest", label: "Forest", icon: "\ud83c\udf32" },
+  { id: "blossom", label: "Blossom", icon: "\ud83c\udf38" },
 ];
+
+async function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("Clipboard copy failed");
+}
 
 function getSavedManager() {
   try {
@@ -38,6 +57,7 @@ export default function App() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [theme, setTheme] = useState(getSavedTheme);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState("");
   const emailInputRef = useRef(null);
   const themePickerRef = useRef(null);
 
@@ -100,26 +120,34 @@ export default function App() {
     return Object.keys(nextErrors).length === 0;
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
     if (!validate()) return;
 
     const composeUrl =
       "https://outlook.office.com/mail/deeplink/compose" +
       `?to=${encodeURIComponent(clientEmail.trim())}` +
-      `&subject=${encodeURIComponent(EMAIL_SUBJECT)}` +
-      `&body=${encodeURIComponent(emailBody)}`;
+      `&subject=${encodeURIComponent(EMAIL_SUBJECT)}`;
 
     window.open(composeUrl, "_blank", "noopener,noreferrer");
+
+    try {
+      await copyToClipboard(emailBody);
+      setCopyStatus("Email body copied. Paste it into the Outlook draft.");
+    } catch {
+      setCopyStatus("Outlook opened, but the email body could not be copied. Use the preview to copy it manually.");
+    }
   }
 
   function handleEmailChange(event) {
     setClientEmail(event.target.value);
+    setCopyStatus("");
     if (errors.email) setErrors((current) => ({ ...current, email: undefined }));
   }
 
   function handleManagerChange(event) {
     setSelectedManager(event.target.value);
+    setCopyStatus("");
     if (errors.manager) {
       setErrors((current) => ({ ...current, manager: undefined }));
     }
@@ -130,19 +158,15 @@ export default function App() {
     setSelectedManager("");
     setErrors({});
     setIsPreviewOpen(false);
+    setCopyStatus("");
     emailInputRef.current?.focus();
   }
 
   return (
     <main className="page-shell">
-      <section className="app-container" aria-labelledby="page-title">
-        <header className="page-header">
-          <div className="brand-mark" aria-hidden="true">PLF</div>
-          <div className="header-copy">
-            <span className="eyebrow">The Packard Law Firm</span>
-            <h1 id="page-title">Welcome Email Sender</h1>
-            <p>Create a client welcome email in seconds.</p>
-          </div>
+      <div className="app-shell">
+        <header className="app-header">
+          <span className="app-brand">Welcome Email Sender</span>
           <div className="theme-picker" ref={themePickerRef}>
             <button
               className="theme-toggle"
@@ -151,8 +175,8 @@ export default function App() {
               aria-expanded={isThemeMenuOpen}
               onClick={() => setIsThemeMenuOpen((open) => !open)}
             >
-              <span className="theme-toggle-swatch" aria-hidden="true" />
-              <span>{themes.find(({ id }) => id === theme)?.label}</span>
+              <span aria-hidden="true">{"\ud83c\udfa8"}</span>
+              <span>Theme</span>
               <span className="theme-chevron" aria-hidden="true">&#9662;</span>
             </button>
 
@@ -170,7 +194,7 @@ export default function App() {
                       setIsThemeMenuOpen(false);
                     }}
                   >
-                    <span className="theme-swatch" style={{ background: option.color }} aria-hidden="true" />
+                    <span aria-hidden="true">{option.icon}</span>
                     <span>{option.label}</span>
                     <span className="theme-check" aria-hidden="true">&#10003;</span>
                   </button>
@@ -180,7 +204,14 @@ export default function App() {
           </div>
         </header>
 
-        <form className="sender-card" onSubmit={handleSubmit} noValidate>
+        <section className="panel" aria-labelledby="page-title">
+          <div className="page-header">
+            <p className="eyebrow">Client onboarding</p>
+            <h1 id="page-title">Welcome Email Sender</h1>
+            <p className="subtitle">Prepare a personalized welcome email and open it in Outlook.</p>
+          </div>
+
+          <form className="sender-card" onSubmit={handleSubmit} noValidate>
           <div className="form-fields">
             <div className="field-group">
             <label htmlFor="client-email">Client Email</label>
@@ -250,7 +281,7 @@ export default function App() {
 
           <div className="actions">
             <button className="primary-button" type="submit" disabled={!hasRequiredFields}>
-              <span>Open Welcome Email</span>
+              <span>Open Outlook Draft</span>
               <svg viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M7.5 4.5h8v8M15 5 8.25 11.75M15 10.5v4a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4" />
               </svg>
@@ -261,10 +292,19 @@ export default function App() {
           </div>
 
           <p className="privacy-note">
-            Opens a prepared draft in Outlook. Nothing is sent automatically.
+            The email body is copied for you to paste into Outlook. Nothing is sent automatically.
           </p>
-        </form>
-      </section>
+          </form>
+        </section>
+      </div>
+
+      {copyStatus && (
+        <div className="toast-container" aria-live="polite" aria-atomic="true">
+          <div className={`toast ${copyStatus.startsWith("Email body") ? "toast-success" : "toast-error"}`} role="status">
+            {copyStatus}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
