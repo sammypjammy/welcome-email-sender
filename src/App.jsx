@@ -8,6 +8,11 @@ const MANAGER_STORAGE_KEY = "packard-selected-case-manager";
 const THEME_STORAGE_KEY = "packard-welcome-email-theme";
 const LANGUAGE_STORAGE_KEY = "packard-welcome-email-language";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const OUTLOOK_WEB_HOSTS = new Set([
+  "outlook.office.com",
+  "outlook.office365.com",
+  "outlook.cloud.microsoft",
+]);
 const toolkitNavigation = [
   {
     label: "Packard Toolkit",
@@ -49,6 +54,21 @@ async function copyToClipboard(text) {
   const copied = document.execCommand("copy");
   textarea.remove();
   if (!copied) throw new Error("Clipboard copy failed");
+}
+
+function getOutlookComposeUrl(draft) {
+  let outlookOrigin = "https://outlook.office.com";
+
+  try {
+    const draftUrl = new URL(draft.webLink);
+    if (OUTLOOK_WEB_HOSTS.has(draftUrl.hostname.toLowerCase())) {
+      outlookOrigin = draftUrl.origin;
+    }
+  } catch {
+    // Use the standard Outlook Web host if Graph returned an invalid webLink.
+  }
+
+  return `${outlookOrigin}/mail/deeplink/compose?itemid=${encodeURIComponent(draft.id)}&exvsurl=1`;
 }
 
 function getSavedManager() {
@@ -214,6 +234,19 @@ export default function App() {
       }
 
       draftRequestInProgressRef.current = true;
+      const outlookTab = window.open("about:blank", "_blank");
+      if (!outlookTab) {
+        draftRequestInProgressRef.current = false;
+        setCopyStatus("Please allow popups for this site so the Outlook draft can open in a new tab.");
+        return;
+      }
+
+      try {
+        outlookTab.opener = null;
+      } catch {
+        // Some browsers prevent changing window.opener; the tab can still be reused.
+      }
+
       setIsCreatingDraft(true);
       setCopyStatus("Signing in and creating your Outlook draft…");
 
@@ -226,8 +259,9 @@ export default function App() {
           language,
         });
         setCopyStatus("Draft created with its PDF attachments. Opening Outlook…");
-        window.location.assign(draft.webLink);
+        outlookTab.location.href = getOutlookComposeUrl(draft);
       } catch (error) {
+        outlookTab.close();
         console.error("Outlook draft creation failed:", error);
         setCopyStatus(`The Outlook draft could not be created. ${getOutlookErrorMessage(error)}`);
       } finally {
@@ -525,7 +559,7 @@ export default function App() {
 
       {copyStatus && (
         <div className="toast-container" aria-live="polite" aria-atomic="true">
-          <div className={`toast ${copyStatus.includes("could not") ? "toast-error" : "toast-success"}`} role="status">
+          <div className={`toast ${copyStatus.includes("could not") || copyStatus.includes("allow popups") ? "toast-error" : "toast-success"}`} role="status">
             {copyStatus}
           </div>
         </div>
