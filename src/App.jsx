@@ -110,8 +110,16 @@ function getSavedLanguage() {
   }
 }
 
+function getInitialClientEmail() {
+  try {
+    return new URLSearchParams(window.location.search).get("email")?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
 export default function App() {
-  const [clientEmail, setClientEmail] = useState("");
+  const [clientEmail, setClientEmail] = useState(getInitialClientEmail);
   const [selectedManager, setSelectedManager] = useState(getSavedManager);
   const [errors, setErrors] = useState({});
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
