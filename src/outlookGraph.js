@@ -9,6 +9,7 @@ const MAX_SIMPLE_ATTACHMENT_BYTES = 3_000_000;
 const UPLOAD_CHUNK_BYTES = 3 * 1024 * 1024;
 let msalInstance;
 let initializationPromise;
+let interactiveAuthInProgress = false;
 
 function getRedirectUri() {
   if (outlookConfig.redirectUri.trim()) return outlookConfig.redirectUri.trim();
@@ -41,13 +42,37 @@ async function getMsalInstance() {
   return msalInstance;
 }
 
-async function getAccessToken() {
+async function runInteractiveRequest(request) {
+  if (interactiveAuthInProgress) {
+    const error = new Error("A Microsoft sign-in request is already in progress.");
+    error.errorCode = "interaction_in_progress";
+    throw error;
+  }
+
+  interactiveAuthInProgress = true;
+  try {
+    return await request();
+  } finally {
+    interactiveAuthInProgress = false;
+  }
+}
+
+export async function getGraphAccessToken() {
   const app = await getMsalInstance();
   let account = app.getActiveAccount() || app.getAllAccounts()[0];
 
   if (!account) {
-    const loginResult = await app.loginPopup({ scopes: GRAPH_SCOPES });
+    const loginResult = await runInteractiveRequest(() =>
+      app.loginPopup({ scopes: GRAPH_SCOPES }),
+    );
     account = loginResult.account;
+    if (!account) throw new Error("Microsoft sign-in did not return an account.");
+    app.setActiveAccount(account);
+
+    // loginPopup requested the Graph scopes, so its token can normally be used
+    // directly. This avoids opening a second popup immediately after sign-in.
+    if (loginResult.accessToken) return loginResult.accessToken;
+  } else if (app.getActiveAccount() !== account) {
     app.setActiveAccount(account);
   }
 
@@ -56,9 +81,32 @@ async function getAccessToken() {
     return result.accessToken;
   } catch (error) {
     if (!(error instanceof InteractionRequiredAuthError)) throw error;
-    const result = await app.acquireTokenPopup({ scopes: GRAPH_SCOPES, account });
+    const result = await runInteractiveRequest(() =>
+      app.acquireTokenPopup({ scopes: GRAPH_SCOPES, account }),
+    );
     return result.accessToken;
   }
+}
+
+export function getOutlookErrorMessage(error) {
+  const errorCode = error?.errorCode || error?.code || "";
+  const technicalMessage = error?.message || "";
+
+  if (errorCode === "block_nested_popups" || technicalMessage.includes("block_nested_popups")) {
+    return "Microsoft sign-in was started more than once. Please try again.";
+  }
+  if (errorCode === "interaction_in_progress" || technicalMessage.includes("interaction_in_progress")) {
+    return "Microsoft sign-in is already in progress.";
+  }
+  if (
+    errorCode === "popup_window_error" ||
+    errorCode === "empty_window_error" ||
+    /popup (?:window )?(?:was )?blocked/i.test(technicalMessage)
+  ) {
+    return "Your browser blocked the Microsoft sign-in window. Allow popups for this site and try again.";
+  }
+
+  return technicalMessage || "An unexpected error occurred.";
 }
 
 function arrayBufferToBase64(buffer) {
@@ -165,7 +213,7 @@ async function addAttachment(draftId, attachment, accessToken) {
 export async function createOutlookDraft({ recipient, subject, body, managerName, language }) {
   const configuredAttachments = getManagerAttachments(managerName, language);
 
-  const accessToken = await getAccessToken();
+  const accessToken = await getGraphAccessToken();
   const attachments = await Promise.all(configuredAttachments.map(loadAttachment));
   const response = await graphRequest(
     "https://graph.microsoft.com/v1.0/me/messages",

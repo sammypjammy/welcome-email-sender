@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { caseManagers } from "./caseManagers.js";
 import { buildWelcomeEmail, EMAIL_SUBJECT } from "./emailTemplate.js";
 import { getManagerAttachments, isOutlookGraphConfigured } from "./outlookConfig.js";
-import { createOutlookDraft } from "./outlookGraph.js";
+import { createOutlookDraft, getOutlookErrorMessage } from "./outlookGraph.js";
 
 const MANAGER_STORAGE_KEY = "packard-selected-case-manager";
 const THEME_STORAGE_KEY = "packard-welcome-email-theme";
@@ -88,6 +88,7 @@ export default function App() {
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState("");
   const [isCreatingDraft, setIsCreatingDraft] = useState(false);
+  const draftRequestInProgressRef = useRef(false);
   const emailInputRef = useRef(null);
   const appMenuToggleRef = useRef(null);
   const appDrawerRef = useRef(null);
@@ -207,6 +208,12 @@ export default function App() {
     if (!validate()) return;
 
     if (isOutlookGraphConfigured) {
+      if (draftRequestInProgressRef.current) {
+        setCopyStatus("Microsoft sign-in is already in progress.");
+        return;
+      }
+
+      draftRequestInProgressRef.current = true;
       setIsCreatingDraft(true);
       setCopyStatus("Signing in and creating your Outlook draft…");
 
@@ -221,8 +228,10 @@ export default function App() {
         setCopyStatus("Draft created with its PDF attachments. Opening Outlook…");
         window.location.assign(draft.webLink);
       } catch (error) {
-        setCopyStatus(`The Outlook draft could not be created. ${error.message}`);
+        console.error("Outlook draft creation failed:", error);
+        setCopyStatus(`The Outlook draft could not be created. ${getOutlookErrorMessage(error)}`);
       } finally {
+        draftRequestInProgressRef.current = false;
         setIsCreatingDraft(false);
       }
       return;
