@@ -57,18 +57,31 @@ async function copyToClipboard(text) {
 }
 
 function getOutlookComposeUrl(draft) {
-  let outlookOrigin = "https://outlook.office.com";
+  let outlookOrigin = "https://outlook.office365.com";
+  let outlookHostname = "outlook.office365.com";
 
   try {
     const draftUrl = new URL(draft.webLink);
     if (OUTLOOK_WEB_HOSTS.has(draftUrl.hostname.toLowerCase())) {
       outlookOrigin = draftUrl.origin;
+      outlookHostname = draftUrl.hostname.toLowerCase();
     }
   } catch {
     // Use the standard Outlook Web host if Graph returned an invalid webLink.
   }
 
-  return `${outlookOrigin}/mail/deeplink/compose?itemid=${encodeURIComponent(draft.id)}&exvsurl=1`;
+  console.debug("Outlook draft handoff:", {
+    hasDraftId: Boolean(draft.id),
+    draftIdLength: draft.id?.length || 0,
+    hasWebLink: Boolean(draft.webLink),
+    outlookHostname,
+    isDraft: typeof draft.isDraft === "boolean" ? draft.isDraft : "not returned by Graph",
+  });
+
+  if (!draft.id) throw new Error("Microsoft Graph did not return a draft message ID.");
+
+  const encodedId = encodeURIComponent(draft.id);
+  return `${outlookOrigin}/mail/deeplink/compose/${encodedId}?ItemID=${encodedId}&exvsurl=1`;
 }
 
 function getSavedManager() {
