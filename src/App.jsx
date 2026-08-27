@@ -8,6 +8,11 @@ const MANAGER_STORAGE_KEY = "packard-selected-case-manager";
 const THEME_STORAGE_KEY = "packard-welcome-email-theme";
 const LANGUAGE_STORAGE_KEY = "packard-welcome-email-language";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const toolNavigation = [
+  { id: "email", label: "Welcome Email Sender" },
+  { id: "remarks", label: "Remarks Builder" },
+  { id: "med-tabs", label: "Med Tabs Generator" },
+];
 const themes = [
   { id: "light", label: "Light", icon: "\u2600\ufe0f" },
   { id: "dark", label: "Dark", icon: "\ud83c\udf19" },
@@ -61,6 +66,19 @@ function getSavedLanguage() {
   }
 }
 
+function getToolHref(toolId) {
+  if (toolId === "email") return "#";
+
+  const isStandaloneBuild =
+    window.location.protocol === "file:" && /[\\/]dist[\\/]index\.html$/i.test(decodeURI(window.location.pathname));
+
+  if (toolId === "remarks") {
+    return isStandaloneBuild ? "../../remarks/index.html" : "../remarks/index.html";
+  }
+
+  return isStandaloneBuild ? "../../../../MedTabGenNew/index.html" : "../../../MedTabGenNew/index.html";
+}
+
 export default function App() {
   const [clientEmail, setClientEmail] = useState("");
   const [selectedManager, setSelectedManager] = useState(getSavedManager);
@@ -68,10 +86,12 @@ export default function App() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [theme, setTheme] = useState(getSavedTheme);
   const [language, setLanguage] = useState(getSavedLanguage);
+  const [isAppMenuOpen, setIsAppMenuOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState("");
   const [isCreatingDraft, setIsCreatingDraft] = useState(false);
   const emailInputRef = useRef(null);
+  const appMenuRef = useRef(null);
   const themePickerRef = useRef(null);
 
   const manager = caseManagers[selectedManager];
@@ -110,14 +130,18 @@ export default function App() {
   }, [language]);
 
   useEffect(() => {
-    if (!isThemeMenuOpen) return undefined;
+    if (!isAppMenuOpen && !isThemeMenuOpen) return undefined;
 
     function closeOnOutsideClick(event) {
+      if (!appMenuRef.current?.contains(event.target)) setIsAppMenuOpen(false);
       if (!themePickerRef.current?.contains(event.target)) setIsThemeMenuOpen(false);
     }
 
     function closeOnEscape(event) {
-      if (event.key === "Escape") setIsThemeMenuOpen(false);
+      if (event.key === "Escape") {
+        setIsAppMenuOpen(false);
+        setIsThemeMenuOpen(false);
+      }
     }
 
     document.addEventListener("pointerdown", closeOnOutsideClick);
@@ -126,7 +150,7 @@ export default function App() {
       document.removeEventListener("pointerdown", closeOnOutsideClick);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isThemeMenuOpen]);
+  }, [isAppMenuOpen, isThemeMenuOpen]);
 
   function validate() {
     const nextErrors = {};
@@ -225,6 +249,40 @@ export default function App() {
     <main className="page-shell">
       <div className="app-shell">
         <header className="app-header">
+          <div className="app-navigation" ref={appMenuRef}>
+            <button
+              className="app-menu-toggle"
+              type="button"
+              aria-label="Open tools menu"
+              aria-haspopup="menu"
+              aria-expanded={isAppMenuOpen}
+              onClick={() => {
+                setIsAppMenuOpen((open) => !open);
+                setIsThemeMenuOpen(false);
+              }}
+            >
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+            </button>
+
+            {isAppMenuOpen && (
+              <nav className="app-menu" role="menu" aria-label="Packard tools">
+                {toolNavigation.map((tool) =>
+                  tool.id === "email" ? (
+                    <span className="app-menu-item active" role="menuitem" aria-current="page" key={tool.id}>
+                      {tool.label}
+                      <span className="app-menu-check" aria-hidden="true">&#10003;</span>
+                    </span>
+                  ) : (
+                    <a className="app-menu-item" role="menuitem" href={getToolHref(tool.id)} key={tool.id}>
+                      {tool.label}
+                    </a>
+                  ),
+                )}
+              </nav>
+            )}
+          </div>
           <span className="app-brand">Welcome Email Sender</span>
           <div className="app-header-actions">
             <div className="language-selector" role="radiogroup" aria-label="Packet language">
@@ -254,7 +312,10 @@ export default function App() {
               type="button"
               aria-haspopup="menu"
               aria-expanded={isThemeMenuOpen}
-              onClick={() => setIsThemeMenuOpen((open) => !open)}
+              onClick={() => {
+                setIsThemeMenuOpen((open) => !open);
+                setIsAppMenuOpen(false);
+              }}
             >
               <span aria-hidden="true">{"\ud83c\udfa8"}</span>
               <span>Theme</span>
