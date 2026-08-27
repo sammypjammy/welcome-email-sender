@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { caseManagers } from "./caseManagers.js";
 import { buildWelcomeEmail, EMAIL_SUBJECT } from "./emailTemplate.js";
+import { getManagerAttachments, isOutlookGraphConfigured } from "./outlookConfig.js";
+import { createOutlookDraft } from "./outlookGraph.js";
 
 const MANAGER_STORAGE_KEY = "packard-selected-case-manager";
 const THEME_STORAGE_KEY = "packard-welcome-email-theme";
+const LANGUAGE_STORAGE_KEY = "packard-welcome-email-language";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const themes = [
   { id: "light", label: "Light", icon: "\u2600\ufe0f" },
@@ -50,19 +53,34 @@ function getSavedTheme() {
   }
 }
 
+function getSavedLanguage() {
+  try {
+    return localStorage.getItem(LANGUAGE_STORAGE_KEY) === "spanish" ? "spanish" : "english";
+  } catch {
+    return "english";
+  }
+}
+
 export default function App() {
   const [clientEmail, setClientEmail] = useState("");
   const [selectedManager, setSelectedManager] = useState(getSavedManager);
   const [errors, setErrors] = useState({});
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [theme, setTheme] = useState(getSavedTheme);
+  const [language, setLanguage] = useState(getSavedLanguage);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState("");
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
   const emailInputRef = useRef(null);
   const themePickerRef = useRef(null);
 
   const manager = caseManagers[selectedManager];
   const emailBody = useMemo(() => buildWelcomeEmail(manager), [manager]);
+  const managerAttachments = getManagerAttachments(selectedManager, language);
+  const availableManagerNames = useMemo(
+    () => Object.keys(caseManagers).filter((name) => getManagerAttachments(name, language).length),
+    [language],
+  );
   const hasRequiredFields = Boolean(clientEmail.trim() && selectedManager);
 
   useEffect(() => {
@@ -82,6 +100,14 @@ export default function App() {
       // The theme still applies if browser storage is unavailable.
     }
   }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      // The language selector still works if browser storage is unavailable.
+    }
+  }, [language]);
 
   useEffect(() => {
     if (!isThemeMenuOpen) return undefined;
@@ -124,6 +150,28 @@ export default function App() {
     event.preventDefault();
     if (!validate()) return;
 
+    if (isOutlookGraphConfigured) {
+      setIsCreatingDraft(true);
+      setCopyStatus("Signing in and creating your Outlook draft…");
+
+      try {
+        const draft = await createOutlookDraft({
+          recipient: clientEmail.trim(),
+          subject: EMAIL_SUBJECT,
+          body: emailBody,
+          managerName: selectedManager,
+          language,
+        });
+        setCopyStatus("Draft created with its PDF attachments. Opening Outlook…");
+        window.location.assign(draft.webLink);
+      } catch (error) {
+        setCopyStatus(`The Outlook draft could not be created. ${error.message}`);
+      } finally {
+        setIsCreatingDraft(false);
+      }
+      return;
+    }
+
     const composeUrl =
       "https://outlook.office.com/mail/deeplink/compose" +
       `?to=${encodeURIComponent(clientEmail.trim())}` +
@@ -153,6 +201,17 @@ export default function App() {
     }
   }
 
+  function handleLanguageChange(nextLanguage) {
+    setLanguage(nextLanguage);
+    setCopyStatus("");
+    setIsPreviewOpen(false);
+
+    if (selectedManager && !getManagerAttachments(selectedManager, nextLanguage).length) {
+      setSelectedManager("");
+      setErrors((current) => ({ ...current, manager: undefined }));
+    }
+  }
+
   function handleClear() {
     setClientEmail("");
     setSelectedManager("");
@@ -167,7 +226,29 @@ export default function App() {
       <div className="app-shell">
         <header className="app-header">
           <span className="app-brand">Welcome Email Sender</span>
-          <div className="theme-picker" ref={themePickerRef}>
+          <div className="app-header-actions">
+            <div className="language-selector" role="radiogroup" aria-label="Packet language">
+              <button
+                className={`language-option ${language === "english" ? "active" : ""}`}
+                type="button"
+                role="radio"
+                aria-checked={language === "english"}
+                onClick={() => handleLanguageChange("english")}
+              >
+                English
+              </button>
+              <button
+                className={`language-option ${language === "spanish" ? "active" : ""}`}
+                type="button"
+                role="radio"
+                aria-checked={language === "spanish"}
+                onClick={() => handleLanguageChange("spanish")}
+              >
+                Spanish
+              </button>
+            </div>
+
+            <div className="theme-picker" ref={themePickerRef}>
             <button
               className="theme-toggle"
               type="button"
@@ -201,6 +282,7 @@ export default function App() {
                 ))}
               </div>
             )}
+            </div>
           </div>
         </header>
 
@@ -249,7 +331,7 @@ export default function App() {
                 aria-invalid={Boolean(errors.manager)}
               >
                 <option value="">Select a case manager</option>
-                {Object.keys(caseManagers).map((name) => (
+                {availableManagerNames.map((name) => (
                   <option key={name} value={name}>{name}</option>
                 ))}
               </select>
@@ -280,8 +362,8 @@ export default function App() {
           )}
 
           <div className="actions">
-            <button className="primary-button" type="submit" disabled={!hasRequiredFields}>
-              <span>Open Outlook Draft</span>
+            <button className="primary-button" type="submit" disabled={!hasRequiredFields || isCreatingDraft}>
+              <span>{isCreatingDraft ? "Creating Draft…" : "Open Outlook Draft"}</span>
               <svg viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M7.5 4.5h8v8M15 5 8.25 11.75M15 10.5v4a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4" />
               </svg>
@@ -292,7 +374,13 @@ export default function App() {
           </div>
 
           <p className="privacy-note">
-            The email body is copied for you to paste into Outlook. Nothing is sent automatically.
+            {isOutlookGraphConfigured
+              ? !selectedManager
+                ? `Choose a case manager to use the ${language === "spanish" ? "Spanish" : "English"} welcome packet.`
+                : managerAttachments.length
+                ? `${managerAttachments.length} PDF attachment${managerAttachments.length === 1 ? "" : "s"} will be added automatically. Nothing is sent until you review it.`
+                : "No PDF is mapped to this case manager yet. The draft will still be created for review."
+              : "Outlook attachment setup is pending. Until configured, the email body is copied for you to paste."}
           </p>
           </form>
         </section>
@@ -300,7 +388,7 @@ export default function App() {
 
       {copyStatus && (
         <div className="toast-container" aria-live="polite" aria-atomic="true">
-          <div className={`toast ${copyStatus.startsWith("Email body") ? "toast-success" : "toast-error"}`} role="status">
+          <div className={`toast ${copyStatus.includes("could not") ? "toast-error" : "toast-success"}`} role="status">
             {copyStatus}
           </div>
         </div>

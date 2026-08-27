@@ -119,6 +119,12 @@ button { cursor: pointer; transition: transform 160ms ease, background-color 160
 .app-shell { width: min(820px, 100%); margin: 0 auto; }
 .app-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 32px; margin-bottom: 10px; padding: 0 2px; }
 .app-brand { color: var(--text); font-size: 0.8rem; font-weight: 750; letter-spacing: 0.02em; }
+.app-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
+.language-selector { display: inline-grid; grid-template-columns: repeat(2, 1fr); padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-inset); box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04); }
+.language-option { min-height: 24px; padding: 3px 9px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 0.7rem; font-weight: 700; }
+.language-option:hover { color: var(--text); }
+.language-option.active { background: var(--panel); color: var(--accent); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1); transform: none; }
+.language-option:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .theme-picker { position: relative; z-index: 50; }
 
 .theme-toggle {
@@ -200,6 +206,10 @@ input.has-error, select.has-error { border-color: var(--danger); }
 
 @media (max-width: 640px) {
   .page-shell { padding: 12px 12px 28px; }
+  .app-header { align-items: flex-start; }
+  .app-header-actions { gap: 6px; }
+  .language-option { padding-inline: 7px; }
+  .theme-toggle > span:nth-child(2) { display: none; }
   .panel { padding: 18px; border-radius: 18px; }
   .page-header { margin-bottom: 20px; }
   .form-fields { grid-template-columns: 1fr; }

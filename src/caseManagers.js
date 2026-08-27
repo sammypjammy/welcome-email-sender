@@ -22,24 +22,6 @@ export const caseManagers = {
     ssTimeline: "https://youtu.be/U2oMkfhhhEA",
   },
 
-  "Belle Horlacher": {
-    fullName: "Belle Horlacher",
-    phone: "(210) 591-0197",
-    email: "belle.horlacher@packardfirm.com",
-    pronoun: "her",
-    introVideo: null,
-    ssTimeline: null,
-  },
-
-  "Bertha Estrada": {
-    fullName: "Bertha Estrada",
-    phone: "(210) 390-0180",
-    email: "bertha.estrada@packardfirm.com",
-    pronoun: "her",
-    introVideo: null,
-    ssTimeline: "https://youtu.be/U2oMkfhhhEA",
-  },
-
   "Carla Vickers": {
     fullName: "Carla Vickers",
     phone: "(210) 664-0854",
@@ -47,15 +29,6 @@ export const caseManagers = {
     pronoun: "her",
     introVideo: "https://youtu.be/IushHb0rKGY",
     ssTimeline: "https://youtu.be/U2oMkfhhhEA",
-  },
-
-  "Edna DeFrancesca": {
-    fullName: "Edna DeFrancesca",
-    phone: "(210) 664-3412",
-    email: "edna@packardfirm.com",
-    pronoun: "her",
-    introVideo: null,
-    ssTimeline: null,
   },
 
   "Elisa Medina": {
