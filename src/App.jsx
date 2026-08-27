@@ -8,17 +8,28 @@ const MANAGER_STORAGE_KEY = "packard-selected-case-manager";
 const THEME_STORAGE_KEY = "packard-welcome-email-theme";
 const LANGUAGE_STORAGE_KEY = "packard-welcome-email-language";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const toolNavigation = [
-  { id: "email", label: "Welcome Email Sender", href: "https://welcome-email-sender.vercel.app/" },
-  { id: "remarks", label: "Remarks Builder", href: "https://cannedremarks.vercel.app/" },
-  { id: "med-tabs", label: "Med Tabs Generator", href: "https://medtabsgenerator.vercel.app/" },
+const toolkitNavigation = [
+  {
+    label: "Packard Toolkit",
+    items: [
+      { id: "home", label: "Home", status: "Coming soon" },
+      { id: "med-tabs", label: "Med Tabs", href: "https://medtabsgenerator.vercel.app/" },
+      { id: "remarks", label: "Canned Remarks", href: "https://cannedremarks.vercel.app/" },
+      { id: "email", label: "Welcome Emails", current: true },
+      { id: "fax", label: "Fax Sender", status: "Coming soon" },
+    ],
+  },
+  {
+    label: "Other",
+    items: [{ id: "settings", label: "Settings", status: "Coming soon" }],
+  },
 ];
 const themes = [
-  { id: "light", label: "Light", icon: "\u2600\ufe0f" },
-  { id: "dark", label: "Dark", icon: "\ud83c\udf19" },
-  { id: "sepia", label: "Sepia", icon: "\ud83d\udcdc" },
-  { id: "forest", label: "Forest", icon: "\ud83c\udf32" },
-  { id: "blossom", label: "Blossom", icon: "\ud83c\udf38" },
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+  { id: "sepia", label: "Sepia" },
+  { id: "forest", label: "Forest" },
+  { id: "blossom", label: "Blossom" },
 ];
 
 async function copyToClipboard(text) {
@@ -78,8 +89,10 @@ export default function App() {
   const [copyStatus, setCopyStatus] = useState("");
   const [isCreatingDraft, setIsCreatingDraft] = useState(false);
   const emailInputRef = useRef(null);
-  const appMenuRef = useRef(null);
+  const appMenuToggleRef = useRef(null);
+  const appDrawerRef = useRef(null);
   const themePickerRef = useRef(null);
+  const themeToggleRef = useRef(null);
 
   const manager = caseManagers[selectedManager];
   const emailBody = useMemo(() => buildWelcomeEmail(manager), [manager]);
@@ -117,27 +130,59 @@ export default function App() {
   }, [language]);
 
   useEffect(() => {
-    if (!isAppMenuOpen && !isThemeMenuOpen) return undefined;
+    if (!isThemeMenuOpen) return undefined;
 
-    function closeOnOutsideClick(event) {
-      if (!appMenuRef.current?.contains(event.target)) setIsAppMenuOpen(false);
-      if (!themePickerRef.current?.contains(event.target)) setIsThemeMenuOpen(false);
+    function closeThemeMenu(event) {
+      if (event.type === "keydown" && event.key !== "Escape") return;
+      if (event.type === "pointerdown" && themePickerRef.current?.contains(event.target)) return;
+      setIsThemeMenuOpen(false);
+      if (event.type === "keydown") themeToggleRef.current?.focus();
     }
 
-    function closeOnEscape(event) {
+    document.addEventListener("pointerdown", closeThemeMenu);
+    document.addEventListener("keydown", closeThemeMenu);
+    return () => {
+      document.removeEventListener("pointerdown", closeThemeMenu);
+      document.removeEventListener("keydown", closeThemeMenu);
+    };
+  }, [isThemeMenuOpen]);
+
+  useEffect(() => {
+    if (!isAppMenuOpen) return undefined;
+    document.body.classList.add("menu-open");
+    appDrawerRef.current?.querySelector("button")?.focus();
+
+    function handleDrawerKeydown(event) {
       if (event.key === "Escape") {
+        event.preventDefault();
         setIsAppMenuOpen(false);
-        setIsThemeMenuOpen(false);
+        requestAnimationFrame(() => appMenuToggleRef.current?.focus());
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [...(appDrawerRef.current?.querySelectorAll("button, a[href]") || [])];
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
       }
     }
 
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", handleDrawerKeydown);
     return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
-      document.removeEventListener("keydown", closeOnEscape);
+      document.body.classList.remove("menu-open");
+      document.removeEventListener("keydown", handleDrawerKeydown);
     };
-  }, [isAppMenuOpen, isThemeMenuOpen]);
+  }, [isAppMenuOpen]);
+
+  function closeAppMenu(returnFocus = false) {
+    setIsAppMenuOpen(false);
+    if (returnFocus) requestAnimationFrame(() => appMenuToggleRef.current?.focus());
+  }
 
   function validate() {
     const nextErrors = {};
@@ -233,16 +278,18 @@ export default function App() {
   }
 
   return (
-    <main className="page-shell">
+    <div className="page-shell">
       <div className="app-shell">
         <header className="app-header">
-          <div className="app-navigation" ref={appMenuRef}>
+          <div className="app-navigation">
             <button
+              ref={appMenuToggleRef}
               className="app-menu-toggle"
               type="button"
-              aria-label="Open tools menu"
-              aria-haspopup="menu"
+              aria-label="Open Packard Toolkit menu"
+              aria-haspopup="dialog"
               aria-expanded={isAppMenuOpen}
+              aria-controls="app-menu"
               onClick={() => {
                 setIsAppMenuOpen((open) => !open);
                 setIsThemeMenuOpen(false);
@@ -253,25 +300,105 @@ export default function App() {
               <span aria-hidden="true"></span>
             </button>
 
-            {isAppMenuOpen && (
-              <nav className="app-menu" role="menu" aria-label="Packard tools">
-                {toolNavigation.map((tool) =>
-                  tool.id === "email" ? (
-                    <span className="app-menu-item active" role="menuitem" aria-current="page" key={tool.id}>
-                      {tool.label}
-                      <span className="app-menu-check" aria-hidden="true">&#10003;</span>
-                    </span>
-                  ) : (
-                    <a className="app-menu-item" role="menuitem" href={tool.href} key={tool.id}>
-                      {tool.label}
-                    </a>
-                  ),
-                )}
-              </nav>
-            )}
           </div>
-          <span className="app-brand">Welcome Email Sender</span>
+          <span className="app-brand">Packard Toolkit</span>
           <div className="app-header-actions">
+            <div className="theme-picker" ref={themePickerRef}>
+            <button
+              ref={themeToggleRef}
+              className="theme-toggle"
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={isThemeMenuOpen}
+              onClick={() => {
+                setIsThemeMenuOpen((open) => !open);
+                setIsAppMenuOpen(false);
+              }}
+            >
+              <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3a9 9 0 1 0 0 18h1.5a1.5 1.5 0 0 0 0-3H12a2 2 0 0 1 0-4h2.5A6.5 6.5 0 0 0 21 7.5C21 5 17 3 12 3Z" />
+                <circle cx="7.5" cy="10" r="1" /><circle cx="9.5" cy="6.5" r="1" /><circle cx="14" cy="6.2" r="1" /><circle cx="17.2" cy="9" r="1" />
+              </svg>
+              <span>Theme</span>
+              <svg className="theme-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+            </button>
+
+            {isThemeMenuOpen && (
+              <div className="theme-menu" role="menu" aria-label="Choose color scheme">
+                {themes.map((option) => (
+                  <button
+                    className="theme-option"
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={theme === option.id}
+                    key={option.id}
+                    onClick={() => {
+                      setTheme(option.id);
+                      setIsThemeMenuOpen(false);
+                    }}
+                  >
+                    <span className={`theme-swatch swatch-${option.id}`} aria-hidden="true"></span>
+                    <span>{option.label}</span>
+                    <span className="theme-check" aria-hidden="true">&#10003;</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            </div>
+          </div>
+        </header>
+
+        {isAppMenuOpen && (
+          <>
+            <div className="app-menu-backdrop" onClick={() => closeAppMenu(true)} aria-hidden="true"></div>
+            <aside
+              id="app-menu"
+              className="app-menu"
+              ref={appDrawerRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="toolkit-menu-title"
+            >
+              <div className="app-menu-header">
+                <div>
+                  <p className="app-menu-eyebrow">Internal tools</p>
+                  <h2 id="toolkit-menu-title">Packard Toolkit</h2>
+                </div>
+                <button className="icon-button drawer-close" type="button" onClick={() => closeAppMenu(true)} aria-label="Close Packard Toolkit menu">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+                </button>
+              </div>
+              <nav className="toolkit-navigation" aria-label="Packard Toolkit tools">
+                {toolkitNavigation.map((section) => (
+                  <section className="toolkit-nav-section" key={section.label}>
+                    <h3 className="toolkit-nav-label">{section.label}</h3>
+                    {section.items.map((tool) =>
+                      tool.current ? (
+                        <span className="toolkit-nav-item active" aria-current="page" key={tool.id}>
+                          <span>{tool.label}</span><span className="toolkit-nav-status">Current</span>
+                        </span>
+                      ) : tool.href ? (
+                        <a className="toolkit-nav-item" href={tool.href} key={tool.id}>{tool.label}</a>
+                      ) : (
+                        <span className="toolkit-nav-item disabled" aria-disabled="true" key={tool.id}>
+                          <span>{tool.label}</span><span className="toolkit-nav-status">{tool.status}</span>
+                        </span>
+                      ),
+                    )}
+                  </section>
+                ))}
+              </nav>
+            </aside>
+          </>
+        )}
+
+        <main className="panel" aria-labelledby="page-title">
+          <div className="page-header">
+            <div className="page-header-copy">
+              <p className="eyebrow">Client onboarding</p>
+              <h1 id="page-title">Welcome Email Sender</h1>
+              <p className="subtitle">Prepare a personalized welcome email and open it in Outlook.</p>
+            </div>
             <div className="language-selector" role="radiogroup" aria-label="Packet language">
               <button
                 className={`language-option ${language === "english" ? "active" : ""}`}
@@ -292,53 +419,6 @@ export default function App() {
                 Spanish
               </button>
             </div>
-
-            <div className="theme-picker" ref={themePickerRef}>
-            <button
-              className="theme-toggle"
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={isThemeMenuOpen}
-              onClick={() => {
-                setIsThemeMenuOpen((open) => !open);
-                setIsAppMenuOpen(false);
-              }}
-            >
-              <span aria-hidden="true">{"\ud83c\udfa8"}</span>
-              <span>Theme</span>
-              <span className="theme-chevron" aria-hidden="true">&#9662;</span>
-            </button>
-
-            {isThemeMenuOpen && (
-              <div className="theme-menu" role="menu" aria-label="Choose color scheme">
-                {themes.map((option) => (
-                  <button
-                    className="theme-option"
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={theme === option.id}
-                    key={option.id}
-                    onClick={() => {
-                      setTheme(option.id);
-                      setIsThemeMenuOpen(false);
-                    }}
-                  >
-                    <span aria-hidden="true">{option.icon}</span>
-                    <span>{option.label}</span>
-                    <span className="theme-check" aria-hidden="true">&#10003;</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            </div>
-          </div>
-        </header>
-
-        <section className="panel" aria-labelledby="page-title">
-          <div className="page-header">
-            <p className="eyebrow">Client onboarding</p>
-            <h1 id="page-title">Welcome Email Sender</h1>
-            <p className="subtitle">Prepare a personalized welcome email and open it in Outlook.</p>
           </div>
 
           <form className="sender-card" onSubmit={handleSubmit} noValidate>
@@ -431,7 +511,7 @@ export default function App() {
               : "Outlook attachment setup is pending. Until configured, the email body is copied for you to paste."}
           </p>
           </form>
-        </section>
+        </main>
       </div>
 
       {copyStatus && (
@@ -441,6 +521,6 @@ export default function App() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }
