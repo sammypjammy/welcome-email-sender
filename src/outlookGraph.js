@@ -1,5 +1,6 @@
 import {
   InteractionRequiredAuthError,
+  LogLevel,
   PublicClientApplication,
 } from "@azure/msal-browser";
 import { getManagerAttachments, outlookConfig } from "./outlookConfig.js";
@@ -10,13 +11,24 @@ const UPLOAD_CHUNK_BYTES = 3 * 1024 * 1024;
 let msalInstance;
 let initializationPromise;
 let interactiveAuthInProgress = false;
+const isDevelopment = import.meta.env?.DEV ?? false;
+
+function authLog(message, details) {
+  if (!isDevelopment) return;
+  if (details === undefined) {
+    console.debug(`[Outlook auth] ${message}`);
+  } else {
+    console.debug(`[Outlook auth] ${message}`, details);
+  }
+}
 
 function getRedirectUri() {
-  if (outlookConfig.redirectUri.trim()) return outlookConfig.redirectUri.trim();
   if (window.location.protocol === "file:") {
     throw new Error("Microsoft sign-in requires this app to run from an HTTPS site or localhost.");
   }
-  return window.location.origin;
+
+  const configuredUri = outlookConfig.redirectUri.trim();
+  return new URL(configuredUri || "/auth/callback", window.location.origin).href;
 }
 
 async function getMsalInstance() {
@@ -34,11 +46,24 @@ async function getMsalInstance() {
       cache: {
         cacheLocation: "sessionStorage",
       },
+      system: {
+        loggerOptions: {
+          logLevel: LogLevel.Verbose,
+          piiLoggingEnabled: false,
+          loggerCallback(level, message, containsPii) {
+            if (!isDevelopment || containsPii) return;
+            if (level === LogLevel.Error) console.error(`[MSAL] ${message}`);
+            else if (level === LogLevel.Warning) console.warn(`[MSAL] ${message}`);
+            else console.debug(`[MSAL] ${message}`);
+          },
+        },
+      },
     });
     initializationPromise = msalInstance.initialize();
   }
 
   await initializationPromise;
+  authLog("Initialization complete", { redirectUri: getRedirectUri() });
   return msalInstance;
 }
 
@@ -60,30 +85,40 @@ async function runInteractiveRequest(request) {
 export async function getGraphAccessToken() {
   const app = await getMsalInstance();
   let account = app.getActiveAccount() || app.getAllAccounts()[0];
+  authLog(account ? "Existing account found" : "No existing account found");
 
   if (!account) {
+    authLog("loginPopup started");
     const loginResult = await runInteractiveRequest(() =>
       app.loginPopup({ scopes: GRAPH_SCOPES }),
     );
+    authLog("loginPopup completed");
     account = loginResult.account;
     if (!account) throw new Error("Microsoft sign-in did not return an account.");
     app.setActiveAccount(account);
 
     // loginPopup requested the Graph scopes, so its token can normally be used
     // directly. This avoids opening a second popup immediately after sign-in.
-    if (loginResult.accessToken) return loginResult.accessToken;
+    if (loginResult.accessToken) {
+      authLog("Token acquired from loginPopup");
+      return loginResult.accessToken;
+    }
   } else if (app.getActiveAccount() !== account) {
     app.setActiveAccount(account);
   }
 
   try {
+    authLog("acquireTokenSilent started");
     const result = await app.acquireTokenSilent({ scopes: GRAPH_SCOPES, account });
+    authLog("acquireTokenSilent completed; token acquired");
     return result.accessToken;
   } catch (error) {
     if (!(error instanceof InteractionRequiredAuthError)) throw error;
+    authLog("acquireTokenPopup fallback started");
     const result = await runInteractiveRequest(() =>
       app.acquireTokenPopup({ scopes: GRAPH_SCOPES, account }),
     );
+    authLog("acquireTokenPopup completed; token acquired");
     return result.accessToken;
   }
 }
@@ -97,6 +132,9 @@ export function getOutlookErrorMessage(error) {
   }
   if (errorCode === "interaction_in_progress" || technicalMessage.includes("interaction_in_progress")) {
     return "Microsoft sign-in is already in progress.";
+  }
+  if (errorCode === "timed_out" || technicalMessage.includes("timed_out")) {
+    return "Microsoft sign-in did not finish correctly. Please try signing in again.";
   }
   if (
     errorCode === "popup_window_error" ||
@@ -135,6 +173,7 @@ async function loadAttachment(attachment) {
 }
 
 async function graphRequest(url, accessToken, options = {}) {
+  authLog("Graph request started", { method: options.method || "GET", url });
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -142,6 +181,7 @@ async function graphRequest(url, accessToken, options = {}) {
       ...options.headers,
     },
   });
+  authLog("Graph response received", { method: options.method || "GET", url, status: response.status });
 
   if (!response.ok) {
     const graphError = await response.json().catch(() => null);

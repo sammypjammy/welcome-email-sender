@@ -3,7 +3,9 @@
 export const outlookConfig = {
   clientId: "25788b60-3e91-4e01-90db-f752411dd74b",
   tenantId: "27201660-f1d1-407c-97d9-c089c4a80cfc",
-  redirectUri: "",
+  // MSAL Browser 5 requires popup responses to return to a redirect-bridge page.
+  // Register the resulting absolute URL as an SPA redirect URI in Entra.
+  redirectUri: "/auth/callback",
 
   attachmentsByLanguage: {
     english: {

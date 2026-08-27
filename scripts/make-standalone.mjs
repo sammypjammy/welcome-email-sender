@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 const outputDirectory = resolve("dist");
 const htmlPath = resolve(outputDirectory, "index.html");
@@ -31,7 +31,29 @@ const [css, javascript, favicon] = await Promise.all([
 
 const faviconDataUrl = `data:image/png;base64,${favicon.toString("base64")}`;
 
+async function inlineModuleImports(source, sourcePath, visited = new Set()) {
+  const importPattern = /(?:\bfrom\s*|\bimport\s*\(\s*)["'](\.[^"']+)["']/g;
+  const specifiers = [...source.matchAll(importPattern)].map((match) => match[1]);
+
+  for (const specifier of new Set(specifiers)) {
+    const importedPath = resolve(dirname(sourcePath), specifier);
+    if (visited.has(importedPath)) continue;
+
+    const nextVisited = new Set(visited).add(importedPath);
+    const importedSource = await readFile(importedPath, "utf8");
+    const inlinedSource = await inlineModuleImports(importedSource, importedPath, nextVisited);
+    const dataUrl = `data:text/javascript;base64,${Buffer.from(inlinedSource).toString("base64")}`;
+    source = source.replaceAll(`"${specifier}"`, `"${dataUrl}"`);
+    source = source.replaceAll(`'${specifier}'`, `'${dataUrl}'`);
+  }
+
+  return source;
+}
+
+const standaloneJavascript = await inlineModuleImports(javascript, assetPath(scriptTag[1]));
+
 html = html
+  .replace(/\s*<link rel="modulepreload"[^>]*>/g, "")
   .replace(
     faviconTag[0],
     () => faviconTag[0].replace(faviconTag[1], faviconDataUrl),
@@ -40,7 +62,7 @@ html = html
   .replace(
     scriptTag[0],
     () =>
-      `<script type="module">${javascript.replaceAll("</script>", "<\\/script>")}</script>`,
+      `<script type="module">${standaloneJavascript.replaceAll("</script>", "<\\/script>")}</script>`,
   );
 
 await writeFile(htmlPath, html);
