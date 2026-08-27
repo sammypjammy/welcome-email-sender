@@ -9,9 +9,9 @@ const THEME_STORAGE_KEY = "packard-welcome-email-theme";
 const LANGUAGE_STORAGE_KEY = "packard-welcome-email-language";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const toolNavigation = [
-  { id: "email", label: "Welcome Email Sender" },
-  { id: "remarks", label: "Remarks Builder" },
-  { id: "med-tabs", label: "Med Tabs Generator" },
+  { id: "email", label: "Welcome Email Sender", href: "https://welcome-email-sender.vercel.app/" },
+  { id: "remarks", label: "Remarks Builder", href: "https://cannedremarks.vercel.app/" },
+  { id: "med-tabs", label: "Med Tabs Generator", href: "https://medtabsgenerator.vercel.app/" },
 ];
 const themes = [
   { id: "light", label: "Light", icon: "\u2600\ufe0f" },
@@ -64,19 +64,6 @@ function getSavedLanguage() {
   } catch {
     return "english";
   }
-}
-
-function getToolHref(toolId) {
-  if (toolId === "email") return "#";
-
-  const isStandaloneBuild =
-    window.location.protocol === "file:" && /[\\/]dist[\\/]index\.html$/i.test(decodeURI(window.location.pathname));
-
-  if (toolId === "remarks") {
-    return isStandaloneBuild ? "../../remarks/index.html" : "../remarks/index.html";
-  }
-
-  return isStandaloneBuild ? "../../../../MedTabGenNew/index.html" : "../../../MedTabGenNew/index.html";
 }
 
 export default function App() {
@@ -275,7 +262,7 @@ export default function App() {
                       <span className="app-menu-check" aria-hidden="true">&#10003;</span>
                     </span>
                   ) : (
-                    <a className="app-menu-item" role="menuitem" href={getToolHref(tool.id)} key={tool.id}>
+                    <a className="app-menu-item" role="menuitem" href={tool.href} key={tool.id}>
                       {tool.label}
                     </a>
                   ),
