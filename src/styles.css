@@ -168,8 +168,7 @@ svg { display: block; }
 .panel { width: min(1400px, calc(100% - 48px)); margin: 0 auto; padding: 28px 0 48px; }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
 .page-header-copy { min-width: 0; }
-.eyebrow { color: var(--accent); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
-h1 { margin-top: 8px; color: var(--text); font-size: clamp(2rem, 4vw, 2.25rem); font-weight: 750; letter-spacing: -0.035em; line-height: 1.1; }
+h1 { color: var(--text); font-size: clamp(2rem, 4vw, 2.25rem); font-weight: 750; letter-spacing: -0.035em; line-height: 1.1; }
 .subtitle { margin-top: 8px; color: var(--muted); font-size: 1rem; line-height: 1.55; }
 .language-selector { display: inline-grid; grid-template-columns: repeat(2, 1fr); flex: 0 0 auto; padding: 4px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-inset); }
 .language-option { min-height: 34px; padding: 6px 12px; border-radius: 9px; background: transparent; color: var(--muted); font-size: 0.78rem; font-weight: 700; }

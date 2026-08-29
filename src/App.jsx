@@ -459,7 +459,6 @@ export default function App() {
         <main className="panel" aria-labelledby="page-title">
           <div className="page-header">
             <div className="page-header-copy">
-              <p className="eyebrow">Client onboarding</p>
               <h1 id="page-title">Welcome Email Sender</h1>
               <p className="subtitle">Prepare a personalized welcome email and open it in Outlook.</p>
             </div>
