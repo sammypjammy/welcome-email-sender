@@ -1,8 +1,20 @@
 {
   "rewrites": [
     {
+      "source": "/med-tabs/",
+      "destination": "/med-tabs/index.html"
+    },
+    {
+      "source": "/canned-remarks/",
+      "destination": "/canned-remarks/index.html"
+    },
+    {
       "source": "/auth/callback",
       "destination": "/auth/callback.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/index.html"
     }
   ],
   "headers": [

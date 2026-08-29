@@ -14,8 +14,11 @@ const scriptTag = html.match(
 const faviconTag = html.match(
   /<link rel="icon" type="image\/png" href="([^"]+)" \/>/,
 );
+const settingsScriptTag = html.match(
+  /<script src="([^"]*settingsStorage\.js)"><\/script>/,
+);
 
-if (!stylesheetTag || !scriptTag || !faviconTag) {
+if (!stylesheetTag || !scriptTag || !faviconTag || !settingsScriptTag) {
   throw new Error("Could not locate the generated page assets.");
 }
 
@@ -23,10 +26,11 @@ function assetPath(urlPath) {
   return resolve(outputDirectory, urlPath.replace(/^\//, ""));
 }
 
-const [css, javascript, favicon] = await Promise.all([
+const [css, javascript, favicon, settingsJavascript] = await Promise.all([
   readFile(assetPath(stylesheetTag[1]), "utf8"),
   readFile(assetPath(scriptTag[1]), "utf8"),
   readFile(assetPath(faviconTag[1])),
+  readFile(assetPath(settingsScriptTag[1]), "utf8"),
 ]);
 
 const faviconDataUrl = `data:image/png;base64,${favicon.toString("base64")}`;
@@ -59,6 +63,10 @@ html = html
     () => faviconTag[0].replace(faviconTag[1], faviconDataUrl),
   )
   .replace(stylesheetTag[0], () => `<style>${css}</style>`)
+  .replace(
+    settingsScriptTag[0],
+    () => `<script>${settingsJavascript.replaceAll("</script>", "<\\/script>")}</script>`,
+  )
   .replace(
     scriptTag[0],
     () =>

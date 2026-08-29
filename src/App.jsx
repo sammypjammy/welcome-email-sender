@@ -3,6 +3,8 @@ import { caseManagers } from "./caseManagers.js";
 import { buildWelcomeEmail, EMAIL_SUBJECT } from "./emailTemplate.js";
 import { getManagerAttachments, isOutlookGraphConfigured } from "./outlookConfig.js";
 import { createOutlookDraft, getOutlookErrorMessage } from "./outlookGraph.js";
+import SettingsPage from "./SettingsPage.jsx";
+import { getSetting } from "./settingsStorage.js";
 
 const MANAGER_STORAGE_KEY = "packard-selected-case-manager";
 const THEME_STORAGE_KEY = "packard-welcome-email-theme";
@@ -13,22 +15,24 @@ const OUTLOOK_WEB_HOSTS = new Set([
   "outlook.office365.com",
   "outlook.cloud.microsoft",
 ]);
-const toolkitNavigation = [
+function getToolkitNavigation(isSettingsPage) {
+  return [
   {
     label: "Packard Toolkit",
     items: [
       { id: "home", label: "Home", status: "Coming soon" },
-      { id: "med-tabs", label: "Med Tabs", href: "https://medtabsgenerator.vercel.app/" },
-      { id: "remarks", label: "Canned Remarks", href: "https://cannedremarks.vercel.app/" },
-      { id: "email", label: "Welcome Emails", current: true },
+      { id: "med-tabs", label: "Med Tabs", href: "/med-tabs/" },
+      { id: "remarks", label: "Canned Remarks", href: "/canned-remarks/" },
+      { id: "email", label: "Welcome Emails", href: "/", current: !isSettingsPage },
       { id: "fax", label: "Fax Sender", status: "Coming soon" },
     ],
   },
   {
     label: "Other",
-    items: [{ id: "settings", label: "Settings", status: "Coming soon" }],
+    items: [{ id: "settings", label: "Settings", href: "/settings", current: isSettingsPage }],
   },
-];
+  ];
+}
 const themes = [
   { id: "light", label: "Light" },
   { id: "dark", label: "Dark" },
@@ -119,6 +123,8 @@ function getInitialClientEmail() {
 }
 
 export default function App() {
+  const isSettingsPage = window.location.pathname.replace(/\/$/, "") === "/settings";
+  const toolkitNavigation = getToolkitNavigation(isSettingsPage);
   const [clientEmail, setClientEmail] = useState(getInitialClientEmail);
   const [selectedManager, setSelectedManager] = useState(getSavedManager);
   const [errors, setErrors] = useState({});
@@ -255,15 +261,16 @@ export default function App() {
       }
 
       draftRequestInProgressRef.current = true;
-      const outlookTab = window.open("about:blank", "_blank");
-      if (!outlookTab) {
+      const openInNewTab = getSetting("openDraftsInNewTab");
+      const outlookTab = openInNewTab ? window.open("about:blank", "_blank") : null;
+      if (openInNewTab && !outlookTab) {
         draftRequestInProgressRef.current = false;
         setCopyStatus("Please allow popups for this site so the Outlook draft can open in a new tab.");
         return;
       }
 
       try {
-        outlookTab.opener = null;
+        if (outlookTab) outlookTab.opener = null;
       } catch {
         // Some browsers prevent changing window.opener; the tab can still be reused.
       }
@@ -280,9 +287,14 @@ export default function App() {
           language,
         });
         setCopyStatus("Draft created with its PDF attachments. Opening Outlook…");
-        outlookTab.location.href = getOutlookComposeUrl(draft);
+        const composeUrl = getOutlookComposeUrl(draft);
+        if (outlookTab) {
+          outlookTab.location.href = composeUrl;
+        } else {
+          window.location.assign(composeUrl);
+        }
       } catch (error) {
-        outlookTab.close();
+        outlookTab?.close();
         console.error("Outlook draft creation failed:", error);
         setCopyStatus(`The Outlook draft could not be created. ${getOutlookErrorMessage(error)}`);
       } finally {
@@ -297,12 +309,18 @@ export default function App() {
       `?to=${encodeURIComponent(clientEmail.trim())}` +
       `&subject=${encodeURIComponent(EMAIL_SUBJECT)}`;
 
-    window.open(composeUrl, "_blank", "noopener,noreferrer");
+    const openInNewTab = getSetting("openDraftsInNewTab");
+    if (openInNewTab) window.open(composeUrl, "_blank", "noopener,noreferrer");
 
     try {
       await copyToClipboard(emailBody);
-      setCopyStatus("Email body copied. Paste it into the Outlook draft.");
+      if (openInNewTab) {
+        setCopyStatus("Email body copied. Paste it into the Outlook draft.");
+      } else {
+        window.location.assign(composeUrl);
+      }
     } catch {
+      if (!openInNewTab) window.location.assign(composeUrl);
       setCopyStatus("Outlook opened, but the email body could not be copied. Use the preview to copy it manually.");
     }
   }
@@ -456,7 +474,7 @@ export default function App() {
           </>
         )}
 
-        <main className="panel" aria-labelledby="page-title">
+        {isSettingsPage ? <SettingsPage /> : <main className="panel" aria-labelledby="page-title">
           <div className="page-header">
             <div className="page-header-copy">
               <h1 id="page-title">Welcome Email Sender</h1>
@@ -574,7 +592,7 @@ export default function App() {
               : "Outlook attachment setup is pending. Until configured, the email body is copied for you to paste."}
           </p>
           </form>
-        </main>
+        </main>}
       </div>
 
       {copyStatus && (
