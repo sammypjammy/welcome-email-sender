@@ -3,6 +3,7 @@
 
   const SETTINGS_STORAGE_KEY = "packard-toolkit-settings";
   const CUSTOM_REMARKS_STORAGE_KEY = "packard-toolkit-custom-remarks";
+  const EMAIL_SIGNATURE_STORAGE_KEY = "packard-toolkit-email-signature";
   const DEFAULT_SETTINGS = Object.freeze({
     openDraftsInNewTab: true,
     confirmBeforeClearingMedTabs: true,
@@ -58,12 +59,34 @@
     return writeJson(CUSTOM_REMARKS_STORAGE_KEY, normalizedRemarks);
   }
 
+  function normalizeEmailSignature(signature) {
+    if (!signature || typeof signature !== "object") return null;
+    const name = typeof signature.name === "string" ? signature.name.trim() : "";
+    const position = typeof signature.position === "string" ? signature.position.trim() : "";
+    const phone = typeof signature.phone === "string" ? signature.phone.trim() : "";
+    return name && position && phone ? { name, position, phone } : null;
+  }
+
+  function getEmailSignature() {
+    return normalizeEmailSignature(readJson(EMAIL_SIGNATURE_STORAGE_KEY, null));
+  }
+
+  function saveEmailSignature(signature) {
+    const normalizedSignature = normalizeEmailSignature(signature);
+    return normalizedSignature
+      ? writeJson(EMAIL_SIGNATURE_STORAGE_KEY, normalizedSignature)
+      : false;
+  }
+
   global.PackardSettings = Object.freeze({
     SETTINGS_STORAGE_KEY,
     CUSTOM_REMARKS_STORAGE_KEY,
+    EMAIL_SIGNATURE_STORAGE_KEY,
     getSetting,
     setSetting,
     getCustomRemarks,
     saveCustomRemarks,
+    getEmailSignature,
+    saveEmailSignature,
   });
 })(window);

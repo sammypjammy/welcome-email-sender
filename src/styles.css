@@ -245,6 +245,15 @@ input.has-error, select.has-error { border-color: var(--danger); }
 .custom-remark-actions button:hover { background: var(--accent-soft); }
 .custom-remark-actions .delete-action { color: var(--danger); }
 .settings-empty-state { padding: 24px 28px 28px; color: var(--muted); font-size: 0.875rem; }
+.signature-empty-state { border-top: 1px solid var(--border-subtle); }
+.signature-preview { margin: 0 28px 26px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-inset); color: var(--muted); font-size: 0.875rem; line-height: 1.6; }
+.signature-preview .signature-name { color: var(--text); font-size: 0.95rem; font-weight: 750; }
+.settings-modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgba(9, 13, 20, 0.58); backdrop-filter: blur(2px); animation: fade-in 160ms ease-out both; }
+.settings-modal { width: min(520px, 100%); max-height: calc(100vh - 40px); overflow: auto; border: 1px solid var(--border); border-radius: 20px; background: var(--panel); box-shadow: var(--shadow-menu); }
+.settings-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 24px 18px; border-bottom: 1px solid var(--border-subtle); }
+.settings-modal-header h2 { color: var(--text); font-size: 1.25rem; }
+.signature-form { display: grid; gap: 17px; padding: 24px; }
+.settings-modal-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 5px; }
 
 .toast-container { position: fixed; right: 18px; bottom: 18px; z-index: 1000; max-width: min(380px, calc(100vw - 32px)); pointer-events: none; }
 .toast { padding: 11px 14px; border: 1px solid var(--border); border-left-width: 4px; border-radius: 11px; background: var(--panel); color: var(--text); box-shadow: var(--shadow-menu); font-size: 0.825rem; font-weight: 650; line-height: 1.35; animation: toast-in 180ms ease-out both; }
@@ -267,6 +276,7 @@ input.has-error, select.has-error { border-color: var(--danger); }
   .resource-row, .custom-remark-row { align-items: stretch; flex-direction: column; }
   .secondary-link-button { align-self: flex-start; }
   .remark-editor { margin-inline: 22px; }
+  .signature-preview { margin-inline: 22px; }
 }
 
 @media (max-width: 480px) {
@@ -284,6 +294,9 @@ input.has-error, select.has-error { border-color: var(--danger); }
   .settings-card-header-action { align-items: stretch; flex-direction: column; }
   .add-remark-button { align-self: flex-start; }
   .setting-row { gap: 16px; }
+  .settings-modal-backdrop { padding: 12px; }
+  .settings-modal { border-radius: 16px; }
+  .settings-modal-header, .signature-form { padding-left: 18px; padding-right: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

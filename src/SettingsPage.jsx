@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EMAIL_RESOURCES_FOLDER_URL } from "./toolkitConfig.js";
 import {
   getCustomRemarks,
+  getEmailSignature,
   getSetting,
   saveCustomRemarks,
+  saveEmailSignature,
   setSetting,
 } from "./settingsStorage.js";
 
@@ -41,6 +43,22 @@ export default function SettingsPage() {
   const [editingRemarkId, setEditingRemarkId] = useState(null);
   const [remarkTitle, setRemarkTitle] = useState("");
   const [remarkText, setRemarkText] = useState("");
+  const [emailSignature, setEmailSignature] = useState(getEmailSignature);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [signatureName, setSignatureName] = useState("");
+  const [signaturePosition, setSignaturePosition] = useState("");
+  const [signaturePhone, setSignaturePhone] = useState("");
+  const signatureNameInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!isSignatureModalOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setIsSignatureModalOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    signatureNameInputRef.current?.focus();
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isSignatureModalOpen]);
 
   function updateToggle(name, value, updateState) {
     updateState(value);
@@ -90,6 +108,26 @@ export default function SettingsPage() {
     if (editingRemarkId === remarkId) closeRemarkForm();
   }
 
+  function openSignatureModal() {
+    setSignatureName(emailSignature?.name ?? "");
+    setSignaturePosition(emailSignature?.position ?? "");
+    setSignaturePhone(emailSignature?.phone ?? "");
+    setIsSignatureModalOpen(true);
+  }
+
+  function submitSignature(event) {
+    event.preventDefault();
+    const nextSignature = {
+      name: signatureName.trim(),
+      position: signaturePosition.trim(),
+      phone: signaturePhone.trim(),
+    };
+    if (!nextSignature.name || !nextSignature.position || !nextSignature.phone) return;
+    setEmailSignature(nextSignature);
+    saveEmailSignature(nextSignature);
+    setIsSignatureModalOpen(false);
+  }
+
   return (
     <main className="panel settings-panel" aria-labelledby="page-title">
       <div className="page-header">
@@ -100,6 +138,29 @@ export default function SettingsPage() {
       </div>
 
       <div className="settings-stack">
+        <section className="settings-card" aria-labelledby="signature-settings-title">
+          <div className="settings-card-header settings-card-header-action">
+            <div>
+              <p className="settings-section-label">Welcome Emails</p>
+              <h2 id="signature-settings-title">Email Signature</h2>
+              <p className="settings-description">Save the contact details you want to use in your welcome email signature.</p>
+            </div>
+            <button className="add-remark-button" type="button" onClick={openSignatureModal}>
+              {emailSignature ? "Edit Signature" : "+ Add Signature"}
+            </button>
+          </div>
+
+          {emailSignature ? (
+            <div className="signature-preview" aria-label="Saved email signature">
+              <p className="signature-name">{emailSignature.name}</p>
+              <p>{emailSignature.position}</p>
+              <p>{emailSignature.phone}</p>
+            </div>
+          ) : (
+            <p className="settings-empty-state signature-empty-state">No email signature saved yet.</p>
+          )}
+        </section>
+
         <section className="settings-card" aria-labelledby="email-settings-title">
           <div className="settings-card-header">
             <p className="settings-section-label">Email Sender</p>
@@ -182,6 +243,42 @@ export default function SettingsPage() {
           </div>
         </section>
       </div>
+
+      {isSignatureModalOpen && (
+        <div className="settings-modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setIsSignatureModalOpen(false);
+        }}>
+          <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="signature-modal-title">
+            <div className="settings-modal-header">
+              <div>
+                <p className="settings-section-label">Welcome Emails</p>
+                <h2 id="signature-modal-title">{emailSignature ? "Edit Email Signature" : "Add Email Signature"}</h2>
+              </div>
+              <button className="icon-button" type="button" aria-label="Close signature editor" onClick={() => setIsSignatureModalOpen(false)}>
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <form className="signature-form" onSubmit={submitSignature}>
+              <div className="field-group">
+                <label htmlFor="signature-name">Name</label>
+                <input ref={signatureNameInputRef} id="signature-name" value={signatureName} onChange={(event) => setSignatureName(event.target.value)} autoComplete="name" required />
+              </div>
+              <div className="field-group">
+                <label htmlFor="signature-position">Position</label>
+                <input id="signature-position" value={signaturePosition} onChange={(event) => setSignaturePosition(event.target.value)} autoComplete="organization-title" required />
+              </div>
+              <div className="field-group">
+                <label htmlFor="signature-phone">Phone number</label>
+                <input id="signature-phone" type="tel" value={signaturePhone} onChange={(event) => setSignaturePhone(event.target.value)} autoComplete="tel" required />
+              </div>
+              <div className="settings-modal-actions">
+                <button className="clear-button" type="button" onClick={() => setIsSignatureModalOpen(false)}>Cancel</button>
+                <button className="save-remark-button" type="submit">Save Signature</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
