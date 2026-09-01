@@ -4,6 +4,8 @@
   const SETTINGS_STORAGE_KEY = "packard-toolkit-settings";
   const CUSTOM_REMARKS_STORAGE_KEY = "packard-toolkit-custom-remarks";
   const EMAIL_SIGNATURE_STORAGE_KEY = "packard-toolkit-email-signature";
+  const EMAIL_TEMPLATES_STORAGE_KEY = "packard-toolkit-email-templates";
+  const CUSTOM_CASE_MANAGERS_STORAGE_KEY = "packard-toolkit-custom-case-managers";
   const DEFAULT_SETTINGS = Object.freeze({
     openDraftsInNewTab: true,
     confirmBeforeClearingMedTabs: true,
@@ -78,15 +80,63 @@
       : false;
   }
 
+  function normalizeEmailTemplates(templates) {
+    if (!templates || typeof templates !== "object") return {};
+    return ["english", "spanish"].reduce((normalized, language) => {
+      const subject = typeof templates[language]?.subject === "string" ? templates[language].subject.trim() : "";
+      const body = typeof templates[language]?.body === "string" ? templates[language].body.trim() : "";
+      if (subject && body) normalized[language] = { subject, body };
+      return normalized;
+    }, {});
+  }
+
+  function getEmailTemplates() {
+    return normalizeEmailTemplates(readJson(EMAIL_TEMPLATES_STORAGE_KEY, {}));
+  }
+
+  function saveEmailTemplates(templates) {
+    return writeJson(EMAIL_TEMPLATES_STORAGE_KEY, normalizeEmailTemplates(templates));
+  }
+
+  function normalizeCaseManager(manager) {
+    if (!manager || typeof manager !== "object") return null;
+    const fullName = typeof manager.fullName === "string" ? manager.fullName.trim() : "";
+    const phone = typeof manager.phone === "string" ? manager.phone.trim() : "";
+    const email = typeof manager.email === "string" ? manager.email.trim() : "";
+    const introVideo = typeof manager.introVideo === "string" ? manager.introVideo.trim() : "";
+    const ssTimeline = typeof manager.ssTimeline === "string" ? manager.ssTimeline.trim() : "";
+    return fullName && phone && email
+      ? { fullName, firstName: fullName.split(/\s+/)[0], phone, email, introVideo: introVideo || null, ssTimeline: ssTimeline || null, kind: "custom" }
+      : null;
+  }
+
+  function getCustomCaseManagers() {
+    const managers = readJson(CUSTOM_CASE_MANAGERS_STORAGE_KEY, []);
+    return Array.isArray(managers) ? managers.map(normalizeCaseManager).filter(Boolean) : [];
+  }
+
+  function saveCustomCaseManagers(managers) {
+    const normalizedManagers = Array.isArray(managers)
+      ? managers.map(normalizeCaseManager).filter(Boolean)
+      : [];
+    return writeJson(CUSTOM_CASE_MANAGERS_STORAGE_KEY, normalizedManagers);
+  }
+
   global.PackardSettings = Object.freeze({
     SETTINGS_STORAGE_KEY,
     CUSTOM_REMARKS_STORAGE_KEY,
     EMAIL_SIGNATURE_STORAGE_KEY,
+    EMAIL_TEMPLATES_STORAGE_KEY,
+    CUSTOM_CASE_MANAGERS_STORAGE_KEY,
     getSetting,
     setSetting,
     getCustomRemarks,
     saveCustomRemarks,
     getEmailSignature,
     saveEmailSignature,
+    getEmailTemplates,
+    saveEmailTemplates,
+    getCustomCaseManagers,
+    saveCustomCaseManagers,
   });
 })(window);

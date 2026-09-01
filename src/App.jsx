@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { caseManagers } from "./caseManagers.js";
-import { buildWelcomeEmail, EMAIL_SUBJECT } from "./emailTemplate.js";
+import { buildWelcomeEmail, buildWelcomeSubject, mergeEmailTemplates } from "./emailTemplate.js";
 import { getManagerAttachments, isOutlookGraphConfigured } from "./outlookConfig.js";
 import { createOutlookDraft, getOutlookErrorMessage } from "./outlookGraph.js";
 import SettingsPage from "./SettingsPage.jsx";
-import { getEmailSignature, getSetting } from "./settingsStorage.js";
+import { getCustomCaseManagers, getEmailSignature, getEmailTemplates, getSetting } from "./settingsStorage.js";
 
 const MANAGER_STORAGE_KEY = "packard-selected-case-manager";
 const THEME_STORAGE_KEY = "packard-welcome-email-theme";
@@ -91,7 +91,8 @@ function getOutlookComposeUrl(draft) {
 function getSavedManager() {
   try {
     const savedManager = localStorage.getItem(MANAGER_STORAGE_KEY);
-    return savedManager && caseManagers[savedManager] ? savedManager : "";
+    const customManagerNames = getCustomCaseManagers().map((manager) => manager.fullName);
+    return savedManager && (caseManagers[savedManager] || customManagerNames.includes(savedManager)) ? savedManager : "";
   } catch {
     return "";
   }
@@ -144,13 +145,29 @@ export default function App() {
   const themeToggleRef = useRef(null);
   const signaturePromptRef = useRef(null);
 
-  const manager = caseManagers[selectedManager];
-  const emailSignature = getEmailSignature();
-  const emailBody = useMemo(() => buildWelcomeEmail(manager, emailSignature), [manager, emailSignature]);
+  const customCaseManagers = useMemo(getCustomCaseManagers, []);
+  const allCaseManagers = useMemo(() => ({
+    ...caseManagers,
+    ...Object.fromEntries(customCaseManagers.map((caseManager) => [caseManager.fullName, caseManager])),
+  }), [customCaseManagers]);
+  const emailTemplates = useMemo(() => mergeEmailTemplates(getEmailTemplates()), []);
+  const emailSignature = useMemo(getEmailSignature, []);
+  const manager = allCaseManagers[selectedManager];
+  const selectedTemplate = emailTemplates[language];
+  const emailSubject = useMemo(
+    () => buildWelcomeSubject(manager, selectedTemplate, language),
+    [manager, selectedTemplate, language],
+  );
+  const emailBody = useMemo(
+    () => buildWelcomeEmail(manager, emailSignature, selectedTemplate, language),
+    [manager, emailSignature, selectedTemplate, language],
+  );
   const managerAttachments = getManagerAttachments(selectedManager, language);
   const availableManagerNames = useMemo(
-    () => Object.keys(caseManagers).filter((name) => getManagerAttachments(name, language).length),
-    [language],
+    () => Object.values(allCaseManagers)
+      .filter((caseManager) => caseManager.kind === "custom" || getManagerAttachments(caseManager.fullName, language).length)
+      .map((caseManager) => caseManager.fullName),
+    [allCaseManagers, language],
   );
   const hasRequiredFields = Boolean(clientEmail.trim() && selectedManager);
 
@@ -299,7 +316,7 @@ export default function App() {
       try {
         const draft = await createOutlookDraft({
           recipient: clientEmail.trim(),
-          subject: EMAIL_SUBJECT,
+          subject: emailSubject,
           body: emailBody,
           managerName: selectedManager,
           language,
@@ -325,7 +342,7 @@ export default function App() {
     const composeUrl =
       "https://outlook.office.com/mail/deeplink/compose" +
       `?to=${encodeURIComponent(clientEmail.trim())}` +
-      `&subject=${encodeURIComponent(EMAIL_SUBJECT)}`;
+      `&subject=${encodeURIComponent(emailSubject)}`;
 
     const openInNewTab = getSetting("openDraftsInNewTab");
     if (openInNewTab) window.open(composeUrl, "_blank", "noopener,noreferrer");
@@ -362,7 +379,7 @@ export default function App() {
     setCopyStatus("");
     setIsPreviewOpen(false);
 
-    if (selectedManager && !getManagerAttachments(selectedManager, nextLanguage).length) {
+    if (selectedManager && manager?.kind !== "custom" && !getManagerAttachments(selectedManager, nextLanguage).length) {
       setSelectedManager("");
       setErrors((current) => ({ ...current, manager: undefined }));
     }
@@ -582,7 +599,7 @@ export default function App() {
             <section className="email-preview" aria-label="Email preview">
               <dl>
                 <div><dt>To:</dt><dd>{clientEmail.trim()}</dd></div>
-                <div><dt>Subject:</dt><dd>{EMAIL_SUBJECT}</dd></div>
+                <div><dt>Subject:</dt><dd>{emailSubject}</dd></div>
               </dl>
               <pre>{emailBody}</pre>
             </section>
