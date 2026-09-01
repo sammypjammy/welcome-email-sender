@@ -70,7 +70,7 @@ export default function SettingsPage() {
   const [managerPhone, setManagerPhone] = useState("");
   const [managerEmail, setManagerEmail] = useState("");
   const [managerIntroVideo, setManagerIntroVideo] = useState("");
-  const [managerTimeline, setManagerTimeline] = useState("");
+  const [managerLanguages, setManagerLanguages] = useState(["english"]);
   const [managerFormError, setManagerFormError] = useState("");
   const signatureNameInputRef = useRef(null);
   const allCaseManagers = [...Object.values(caseManagers), ...customCaseManagers];
@@ -195,7 +195,7 @@ export default function SettingsPage() {
     setManagerPhone("");
     setManagerEmail("");
     setManagerIntroVideo("");
-    setManagerTimeline("");
+    setManagerLanguages(["english"]);
     setManagerFormError("");
   }
 
@@ -213,10 +213,10 @@ export default function SettingsPage() {
       phone: managerPhone.trim(),
       email: managerEmail.trim(),
       introVideo: managerIntroVideo.trim() || null,
-      ssTimeline: managerTimeline.trim() || null,
+      languages: managerLanguages,
       kind: "custom",
     };
-    if (!nextManager.fullName || !nextManager.phone || !nextManager.email) return;
+    if (!nextManager.fullName || !nextManager.phone || !nextManager.email || !nextManager.languages.length) return;
     const nextManagers = [...customCaseManagers, nextManager];
     setCustomCaseManagers(nextManagers);
     saveCustomCaseManagers(nextManagers);
@@ -275,7 +275,7 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <section className="settings-card" aria-labelledby="case-manager-settings-title">
+        <section className="settings-card case-manager-card" aria-labelledby="case-manager-settings-title">
           <div className="settings-card-header settings-card-header-action">
             <div>
               <p className="settings-section-label">Welcome Emails</p>
@@ -288,14 +288,17 @@ export default function SettingsPage() {
             {allCaseManagers.map((caseManager) => (
               <details className="case-manager-item" key={caseManager.fullName}>
                 <summary>
-                  <span>{caseManager.fullName}</span>
-                  <span className="case-manager-summary-meta">{caseManager.kind === "custom" ? "Custom" : "View contact info"}</span>
+                  <span className="case-manager-name">{caseManager.fullName}</span>
+                  <span className="case-manager-language-tags">
+                    {caseManager.languages?.map((managerLanguage) => (
+                      <span key={managerLanguage}>{managerLanguage === "english" ? "EN" : "ES"}</span>
+                    ))}
+                  </span>
                 </summary>
                 <dl className="case-manager-details">
                   <div><dt>Phone</dt><dd>{caseManager.phone}</dd></div>
                   <div><dt>Email</dt><dd><a href={`mailto:${caseManager.email}`}>{caseManager.email}</a></dd></div>
                   {caseManager.introVideo && <div><dt>Intro video</dt><dd><a href={caseManager.introVideo} target="_blank" rel="noreferrer">Open video</a></dd></div>}
-                  {caseManager.ssTimeline && <div><dt>SS timeline</dt><dd><a href={caseManager.ssTimeline} target="_blank" rel="noreferrer">Open video</a></dd></div>}
                 </dl>
               </details>
             ))}
@@ -472,10 +475,25 @@ export default function SettingsPage() {
                 <label htmlFor="manager-intro-video">Intro video URL <span className="optional-label">Optional</span></label>
                 <input id="manager-intro-video" type="url" value={managerIntroVideo} onChange={(event) => setManagerIntroVideo(event.target.value)} placeholder="https://youtu.be/..." />
               </div>
-              <div className="field-group">
-                <label htmlFor="manager-timeline">Social Security timeline URL <span className="optional-label">Optional</span></label>
-                <input id="manager-timeline" type="url" value={managerTimeline} onChange={(event) => setManagerTimeline(event.target.value)} placeholder="https://youtu.be/..." />
-              </div>
+              <fieldset className="language-checkbox-group">
+                <legend>Languages</legend>
+                <p>Select where this case manager should appear.</p>
+                <div>
+                  {[{ id: "english", label: "English" }, { id: "spanish", label: "Spanish" }].map((option) => (
+                    <label key={option.id}>
+                      <input
+                        type="checkbox"
+                        checked={managerLanguages.includes(option.id)}
+                        onChange={(event) => setManagerLanguages((current) => event.target.checked
+                          ? [...current, option.id]
+                          : current.filter((language) => language !== option.id))}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {!managerLanguages.length && <p className="field-error">Choose at least one language.</p>}
+              </fieldset>
               <div className="settings-modal-actions">
                 <button className="clear-button" type="button" onClick={closeCaseManagerModal}>Cancel</button>
                 <button className="save-remark-button" type="submit">Add Case Manager</button>

@@ -104,9 +104,11 @@
     const phone = typeof manager.phone === "string" ? manager.phone.trim() : "";
     const email = typeof manager.email === "string" ? manager.email.trim() : "";
     const introVideo = typeof manager.introVideo === "string" ? manager.introVideo.trim() : "";
-    const ssTimeline = typeof manager.ssTimeline === "string" ? manager.ssTimeline.trim() : "";
+    const languages = Array.isArray(manager.languages)
+      ? manager.languages.filter((language) => language === "english" || language === "spanish")
+      : [];
     return fullName && phone && email
-      ? { fullName, firstName: fullName.split(/\s+/)[0], phone, email, introVideo: introVideo || null, ssTimeline: ssTimeline || null, kind: "custom" }
+      ? { fullName, firstName: fullName.split(/\s+/)[0], phone, email, introVideo: introVideo || null, languages: [...new Set(languages.length ? languages : ["english"])], kind: "custom" }
       : null;
   }
 

@@ -165,7 +165,7 @@ export default function App() {
   const managerAttachments = getManagerAttachments(selectedManager, language);
   const availableManagerNames = useMemo(
     () => Object.values(allCaseManagers)
-      .filter((caseManager) => caseManager.kind === "custom" || getManagerAttachments(caseManager.fullName, language).length)
+      .filter((caseManager) => caseManager.languages?.includes(language))
       .map((caseManager) => caseManager.fullName),
     [allCaseManagers, language],
   );
@@ -379,7 +379,7 @@ export default function App() {
     setCopyStatus("");
     setIsPreviewOpen(false);
 
-    if (selectedManager && manager?.kind !== "custom" && !getManagerAttachments(selectedManager, nextLanguage).length) {
+    if (selectedManager && !manager?.languages?.includes(nextLanguage)) {
       setSelectedManager("");
       setErrors((current) => ({ ...current, manager: undefined }));
     }

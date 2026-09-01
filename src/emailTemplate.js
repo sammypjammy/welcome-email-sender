@@ -92,9 +92,6 @@ function buildVideoSection(caseManager, language) {
   if (caseManager.introVideo) {
     lines.push(`${isSpanish ? "Video de introducción del administrador de casos" : "(Case Manager) Intro. Video"}: ${caseManager.introVideo}`);
   }
-  if (caseManager.ssTimeline) {
-    lines.push(`${isSpanish ? "Cronología del Seguro Social" : "SS Timeline"}: ${caseManager.ssTimeline}`);
-  }
   return lines.join("\n");
 }
 
