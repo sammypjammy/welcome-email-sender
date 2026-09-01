@@ -138,7 +138,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="settings-stack">
-        <section className="settings-card" aria-labelledby="signature-settings-title">
+        <section id="email-signature" className="settings-card settings-anchor-card" aria-labelledby="signature-settings-title">
           <div className="settings-card-header settings-card-header-action">
             <div>
               <p className="settings-section-label">Welcome Emails</p>

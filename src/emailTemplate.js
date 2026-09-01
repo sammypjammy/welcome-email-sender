@@ -5,7 +5,7 @@ export const EMAIL_SUBJECT = "Welcome to Packard Law Firm!";
 // EDIT EMAIL WORDING HERE
 // ===============================
 
-export function buildWelcomeEmail(caseManager, selectedName) {
+export function buildWelcomeEmail(caseManager, emailSignature) {
   if (!caseManager) return "";
 
   let videoSection = `Video List:
@@ -49,7 +49,5 @@ It's been a pleasure working with you, and I know that you are in good hands wit
 
 Thank you,
 
-Sam Jensen
-Filing Specialist
-210-340-8877`;
+${emailSignature ? `- ${emailSignature.name}\n${emailSignature.position}\n${emailSignature.phone}` : ""}`;
 }

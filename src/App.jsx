@@ -4,7 +4,7 @@ import { buildWelcomeEmail, EMAIL_SUBJECT } from "./emailTemplate.js";
 import { getManagerAttachments, isOutlookGraphConfigured } from "./outlookConfig.js";
 import { createOutlookDraft, getOutlookErrorMessage } from "./outlookGraph.js";
 import SettingsPage from "./SettingsPage.jsx";
-import { getSetting } from "./settingsStorage.js";
+import { getEmailSignature, getSetting } from "./settingsStorage.js";
 
 const MANAGER_STORAGE_KEY = "packard-selected-case-manager";
 const THEME_STORAGE_KEY = "packard-welcome-email-theme";
@@ -135,15 +135,18 @@ export default function App() {
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState("");
   const [isCreatingDraft, setIsCreatingDraft] = useState(false);
+  const [isSignaturePromptOpen, setIsSignaturePromptOpen] = useState(false);
   const draftRequestInProgressRef = useRef(false);
   const emailInputRef = useRef(null);
   const appMenuToggleRef = useRef(null);
   const appDrawerRef = useRef(null);
   const themePickerRef = useRef(null);
   const themeToggleRef = useRef(null);
+  const signaturePromptRef = useRef(null);
 
   const manager = caseManagers[selectedManager];
-  const emailBody = useMemo(() => buildWelcomeEmail(manager), [manager]);
+  const emailSignature = getEmailSignature();
+  const emailBody = useMemo(() => buildWelcomeEmail(manager, emailSignature), [manager, emailSignature]);
   const managerAttachments = getManagerAttachments(selectedManager, language);
   const availableManagerNames = useMemo(
     () => Object.keys(caseManagers).filter((name) => getManagerAttachments(name, language).length),
@@ -227,6 +230,16 @@ export default function App() {
     };
   }, [isAppMenuOpen]);
 
+  useEffect(() => {
+    if (!isSignaturePromptOpen) return undefined;
+    signaturePromptRef.current?.querySelector("a, button")?.focus();
+    const closeSignaturePrompt = (event) => {
+      if (event.key === "Escape") setIsSignaturePromptOpen(false);
+    };
+    document.addEventListener("keydown", closeSignaturePrompt);
+    return () => document.removeEventListener("keydown", closeSignaturePrompt);
+  }, [isSignaturePromptOpen]);
+
   function closeAppMenu(returnFocus = false) {
     setIsAppMenuOpen(false);
     if (returnFocus) requestAnimationFrame(() => appMenuToggleRef.current?.focus());
@@ -253,6 +266,11 @@ export default function App() {
   async function handleSubmit(event) {
     event.preventDefault();
     if (!validate()) return;
+
+    if (!emailSignature) {
+      setIsSignaturePromptOpen(true);
+      return;
+    }
 
     if (isOutlookGraphConfigured) {
       if (draftRequestInProgressRef.current) {
@@ -600,6 +618,31 @@ export default function App() {
           <div className={`toast ${copyStatus.includes("could not") || copyStatus.includes("allow popups") ? "toast-error" : "toast-success"}`} role="status">
             {copyStatus}
           </div>
+        </div>
+      )}
+
+      {isSignaturePromptOpen && (
+        <div className="settings-modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setIsSignaturePromptOpen(false);
+        }}>
+          <section ref={signaturePromptRef} className="settings-modal signature-required-modal" role="dialog" aria-modal="true" aria-labelledby="signature-required-title">
+            <div className="settings-modal-header">
+              <div>
+                <p className="settings-section-label">Signature Required</p>
+                <h2 id="signature-required-title">Add your email signature first</h2>
+              </div>
+              <button className="icon-button" type="button" aria-label="Close" onClick={() => setIsSignaturePromptOpen(false)}>
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div className="signature-required-content">
+              <p>Your welcome emails need your name, position, and phone number before a draft can be created.</p>
+              <div className="settings-modal-actions">
+                <button className="clear-button" type="button" onClick={() => setIsSignaturePromptOpen(false)}>Not Now</button>
+                <a className="save-remark-button signature-settings-link" href="/settings#email-signature">Go to Signature Settings</a>
+              </div>
+            </div>
+          </section>
         </div>
       )}
     </div>
