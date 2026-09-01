@@ -61,8 +61,6 @@ Gracias,`,
   },
 });
 
-export const EMAIL_SUBJECT = DEFAULT_EMAIL_TEMPLATES.english.subject;
-
 export function mergeEmailTemplates(savedTemplates) {
   return Object.fromEntries(Object.entries(DEFAULT_EMAIL_TEMPLATES).map(([language, defaults]) => [
     language,

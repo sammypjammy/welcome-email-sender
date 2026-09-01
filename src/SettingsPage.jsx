@@ -209,7 +209,6 @@ export default function SettingsPage() {
     }
     const nextManager = {
       fullName,
-      firstName: fullName.split(/\s+/)[0],
       phone: managerPhone.trim(),
       email: managerEmail.trim(),
       introVideo: managerIntroVideo.trim() || null,

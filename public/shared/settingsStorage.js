@@ -108,7 +108,7 @@
       ? manager.languages.filter((language) => language === "english" || language === "spanish")
       : [];
     return fullName && phone && email
-      ? { fullName, firstName: fullName.split(/\s+/)[0], phone, email, introVideo: introVideo || null, languages: [...new Set(languages.length ? languages : ["english"])], kind: "custom" }
+      ? { fullName, phone, email, introVideo: introVideo || null, languages: [...new Set(languages.length ? languages : ["english"])], kind: "custom" }
       : null;
   }
 
@@ -125,11 +125,6 @@
   }
 
   global.PackardSettings = Object.freeze({
-    SETTINGS_STORAGE_KEY,
-    CUSTOM_REMARKS_STORAGE_KEY,
-    EMAIL_SIGNATURE_STORAGE_KEY,
-    EMAIL_TEMPLATES_STORAGE_KEY,
-    CUSTOM_CASE_MANAGERS_STORAGE_KEY,
     getSetting,
     setSetting,
     getCustomRemarks,
